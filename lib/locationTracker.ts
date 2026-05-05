@@ -1,103 +1,35 @@
-import { supabaseApi } from "@/lib/supabaseApi";
-import { isNativePlatform, getLocationPermissionState } from "@/lib/nativeMobile";
+import { Geolocation } from '@capacitor/geolocation';
+import { supabase } from '@/lib/supabase';
 
-let watchId: string | number | null = null;
-let isTracking = false;
-let currentDriverId: string | null = null;
+class LocationTracker {
+  private watchId: string | null = null;
 
-export async function startLocationTracking(driverId: string) {
-  if (isTracking || !driverId) return;
+  start(driverId: string) {
+    if (this.watchId) return;
 
-  // Check permissions first
-  const permission = await getLocationPermissionState();
-  if (permission !== "granted") {
-    console.warn("Location permission not granted, cannot start tracking");
-    return;
-  }
+    this.watchId = Geolocation.watchPosition(
+      { enableHighAccuracy: true, timeout: 10000 },
+      async (position) => {
+        if (!position?.coords) return;
 
-  currentDriverId = driverId;
-  isTracking = true;
-
-  console.log("Starting location tracking for driver:", driverId);
-
-  const updateLocation = async (position: GeolocationPosition) => {
-    if (!isTracking || !currentDriverId) return;
-
-    const { latitude, longitude } = position.coords;
-
-    try {
-      await supabaseApi.drivers.update(currentDriverId, {
-        latitude,
-        longitude,
-        last_seen_at: new Date().toISOString()
-      });
-      console.log("Location updated:", { latitude, longitude });
-    } catch (error) {
-      console.error("Failed to update location:", error);
-    }
-  };
-
-  const handleError = (error: GeolocationPositionError) => {
-    console.error("Location tracking error:", error);
-  };
-
-  if (isNativePlatform()) {
-    // Use Capacitor Geolocation
-    const { Geolocation } = await import("@capacitor/geolocation");
-    watchId = await Geolocation.watchPosition(
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 3000
-      },
-      (position, err) => {
-        if (err) {
-          handleError(err);
-        } else if (position) {
-          updateLocation(position);
-        }
-      }
-    );
-  } else {
-    // Use browser geolocation
-    watchId = navigator.geolocation.watchPosition(
-      updateLocation,
-      handleError,
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 3000
+        await supabase
+          .from('Driver')
+          .update({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            last_seen_at: new Date().toISOString(),
+          })
+          .eq('id', driverId);
       }
     );
   }
-}
 
-export function stopLocationTracking() {
-  if (!isTracking) return;
-
-  console.log("Stopping location tracking");
-
-  if (watchId !== null) {
-    if (isNativePlatform()) {
-      // Capacitor clearWatch
-      import("@capacitor/geolocation").then(({ Geolocation }) => {
-        Geolocation.clearWatch({ id: watchId as string });
-      });
-    } else {
-      // Browser clearWatch
-      navigator.geolocation.clearWatch(watchId as number);
+  stop() {
+    if (this.watchId) {
+      Geolocation.clearWatch({ id: this.watchId });
+      this.watchId = null;
     }
   }
-
-  watchId = null;
-  isTracking = false;
-  currentDriverId = null;
 }
 
-export function isLocationTrackingActive(): boolean {
-  return isTracking;
-}
-
-export function getCurrentDriverId(): string | null {
-  return currentDriverId;
-}
+export const locationTracker = new LocationTracker();
