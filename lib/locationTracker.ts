@@ -21,6 +21,7 @@ class LocationTracker {
         timeout: 10000,
         maximumAge: 0,
         allowBackgroundLocationUpdates: true,
+        distanceFilter: 5,
       },
       async (position) => {
         if (!position?.coords || !this.driverId) return;
