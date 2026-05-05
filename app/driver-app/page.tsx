@@ -2036,7 +2036,7 @@ export default function DriverApp() {
         await supabaseApi.drivers.update(driver?.id || "", { status: "available", online_since: nowCDMX(), ...vf });
         setDriver((prev) => (prev ? { ...prev, status: "available", ...vf } : prev));
         // Start location tracking
-        locationTracker.start(driver?.id || "");
+        await locationTracker.start(driver?.id || "");
       } catch (e) {
         import("sonner").then(({ toast }) =>
           toast.error("Error al conectarte. Intenta de nuevo.")
@@ -2093,12 +2093,12 @@ export default function DriverApp() {
           : prev
       );
       // Stop location tracking
-      locationTracker.stop();
+      await locationTracker.stop();
     } else {
       await supabaseApi.drivers.update(driver?.id || "", { status: "offline" });
       setDriver((prev) => (prev ? { ...prev, status: "offline" } : prev));
       // Stop location tracking
-      locationTracker.stop();
+      await locationTracker.stop();
     }
   };
 

@@ -3,31 +3,45 @@ import { supabase } from '@/lib/supabase';
 
 class LocationTracker {
   private watchId: string | null = null;
+  private driverId: string | null = null;
 
-  start(driverId: string) {
+  async start(driverId: string) {
     if (this.watchId) return;
 
-    this.watchId = Geolocation.watchPosition(
-      { enableHighAccuracy: true, timeout: 10000 },
+    this.driverId = driverId;
+
+    const perm = await Geolocation.checkPermissions();
+    if (perm.location !== 'granted') {
+      await Geolocation.requestPermissions();
+    }
+
+    this.watchId = await Geolocation.watchPosition(
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+        allowBackgroundLocationUpdates: true,
+      },
       async (position) => {
-        if (!position?.coords) return;
+        if (!position?.coords || !this.driverId) return;
 
         await supabase
-          .from('Driver')
+          .from('drivers')
           .update({
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
             last_seen_at: new Date().toISOString(),
           })
-          .eq('id', driverId);
+          .eq('id', this.driverId);
       }
     );
   }
 
-  stop() {
+  async stop() {
     if (this.watchId) {
-      Geolocation.clearWatch({ id: this.watchId });
+      await Geolocation.clearWatch({ id: this.watchId });
       this.watchId = null;
+      this.driverId = null;
     }
   }
 }
