@@ -35,7 +35,8 @@ import RideHistoryModal from "@/components/driver/RideHistoryModal";
 import useRideAutoAssign from "@/components/shared/useRideAutoAssign";
 import { toast } from "sonner";
 import { enqueueRideUpdateOffline, flushOfflineOutbox, buildReconciliationExtra, isOnlineNow, type OfflineOutboxAction } from "@/lib/offlineSecurity";
-import { clearLiveLocationWatch, getCurrentLiveLocation, getLocationPermissionState, getNotificationPermissionState, requestLocationPermissionAccess, watchLiveLocation, type LiveLocationWatchHandle } from "@/lib/nativeMobile";
+import { clearLiveLocationWatch, getCurrentLiveLocation, getNotificationPermissionState, watchLiveLocation, type LiveLocationWatchHandle } from "@/lib/nativeMobile";
+import { ensureLocationPermission } from "@/lib/locationPermissions";
 import { syncBrandHead } from "@/components/shared/brandHead";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -638,6 +639,9 @@ export default function DriverApp() {
 
   const releaseDriverToAvailable = useCallback(async () => {
     if (!driver?.id) return;
+    // Antes de poner disponible, asegurar permiso de ubicación
+    const ok = await ensureLocationPermission();
+    if (!ok) return;
     try {
       await supabaseApi.drivers.update(driver.id, { status: "available", suspended_until: null });
     } catch {}
@@ -669,11 +673,16 @@ export default function DriverApp() {
   );
 
   useEffect(() => {
+    // Al iniciar sesión, asegurar permiso de ubicación
     const checkPermissions = async () => {
-      const locGranted = (await getLocationPermissionState()) === "granted";
+      const ok = await ensureLocationPermission();
+      if (!ok) {
+        setShowPermissionsOnboarding(true);
+        return;
+      }
       const notifState = await getNotificationPermissionState();
       const notifGranted = notifState === "granted" || notifState === "unsupported";
-      if (!locGranted || !notifGranted) {
+      if (!notifGranted) {
         setShowPermissionsOnboarding(true);
       }
     };
