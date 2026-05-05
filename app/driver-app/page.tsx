@@ -5,7 +5,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { supabaseApi } from "@/lib/supabaseApi";
 import { supabase } from "@/lib/supabase";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
-import { useDriverNotifications, requestNotificationPermission, stopNewRideAlarm, startNewRideAlarm } from "@/components/shared/useRideNotifications";
+import { useDriverNotifications, stopNewRideAlarm, startNewRideAlarm } from "@/components/shared/useRideNotifications";
 import { Car, Star, Clock, User, AlertTriangle, DollarSign, ShieldAlert, HelpCircle, Wifi, Navigation, RefreshCw, TrendingUp, History, LogOut, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from "react-leaflet";
