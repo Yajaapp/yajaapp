@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Camera, User, LogOut, Trash2, ChevronRight, Star, X, MessageSquare, Clock, Battery } from "lucide-react";
+import { Camera, User, LogOut, Trash2, ChevronRight, Star, X, MessageSquare, Clock, Battery, MapPin, Bell, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabaseApi } from "@/lib/supabaseApi";
 import DriverVehiclesPanel from "@/components/driver/DriverVehiclesPanel";
 import { useQuery } from "@tanstack/react-query";
+import { getLocationPermissionState, requestLocationPermission, getNotificationPermissionState, requestNotificationPermission, openAppSettings } from "@/lib/permissionsService";
+import type { AppPermissionState } from "@/lib/permissionsService";
 
 function formatMinutes(mins) {
   const m = Math.floor(mins);
@@ -102,6 +104,8 @@ export default function DriverProfileTab({ driver, onPhotoUpdate, onLogout, onDe
   const [activeSection, setActiveSection] = useState("info");
   const [showRatings, setShowRatings] = useState(false);
   const [onlineElapsed, setOnlineElapsed] = useState(0);
+  const [locationPermission, setLocationPermission] = useState<AppPermissionState>("checking");
+  const [notificationPermission, setNotificationPermission] = useState<AppPermissionState>("checking");
 
   const { data: settingsList = [] } = useQuery({
     queryKey: ["appSettings"],
@@ -123,6 +127,13 @@ export default function DriverProfileTab({ driver, onPhotoUpdate, onLogout, onDe
     const iv = setInterval(update, 30000);
     return () => clearInterval(iv);
   }, [driver?.status, driver?.online_since]);
+
+  useEffect(() => {
+    if (activeSection === "permissions") {
+      getLocationPermissionState().then(setLocationPermission);
+      getNotificationPermissionState().then(setNotificationPermission);
+    }
+  }, [activeSection]);
 
   const { data: driverRides = [] } = useQuery({
     queryKey: ["driverAllRides", driver?.id],
@@ -167,6 +178,10 @@ export default function DriverProfileTab({ driver, onPhotoUpdate, onLogout, onDe
           className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all ${activeSection === "vehicles" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"}`}>
           Vehículos
         </button>
+        <button onClick={() => setActiveSection("permissions")}
+          className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all ${activeSection === "permissions" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"}`}>
+          Permisos
+        </button>
         <button onClick={() => { setActiveSection("ratings"); setShowRatings(true); }}
           className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all ${activeSection === "ratings" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"}`}>
           Calificaciones
@@ -175,6 +190,77 @@ export default function DriverProfileTab({ driver, onPhotoUpdate, onLogout, onDe
 
       {activeSection === "vehicles" && (
         <DriverVehiclesPanel driver={driver} onDriverUpdate={onDriverUpdate} vehicleDocs={vehicleDocs} />
+      )}
+
+      {activeSection === "permissions" && (
+        <div className="space-y-4">
+          <h3 className="text-lg font-bold text-slate-900">Permisos de la aplicación</h3>
+          <p className="text-sm text-slate-500">Gestiona los permisos necesarios para el funcionamiento de la app.</p>
+
+          {/* Permiso de Ubicación */}
+          <div className="bg-slate-50 rounded-xl p-4 space-y-3">
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${locationPermission === "granted" ? "bg-green-100" : locationPermission === "denied" ? "bg-red-100" : "bg-amber-100"}`}>
+                <MapPin className={`w-5 h-5 ${locationPermission === "granted" ? "text-green-600" : locationPermission === "denied" ? "text-red-600" : "text-amber-600"}`} />
+              </div>
+              <div className="flex-1">
+                <h4 className="font-semibold text-slate-900">Ubicación</h4>
+                <p className="text-xs text-slate-500">Necesario para mostrar tu posición en el mapa y conectar con pasajeros.</p>
+              </div>
+              <div className="text-right">
+                <span className={`text-xs font-medium ${locationPermission === "granted" ? "text-green-600" : locationPermission === "denied" ? "text-red-600" : "text-amber-600"}`}>
+                  {locationPermission === "granted" ? "Concedido" : locationPermission === "denied" ? "Denegado" : locationPermission === "prompt" ? "Preguntar" : "Verificando..."}
+                </span>
+              </div>
+            </div>
+            {locationPermission === "denied" && (
+              <Button onClick={() => openAppSettings()} className="w-full bg-slate-600 hover:bg-slate-700 rounded-xl min-h-[44px]">
+                <Settings className="w-4 h-4 mr-2" />
+                Abrir configuración
+              </Button>
+            )}
+            {locationPermission === "prompt" && (
+              <Button onClick={async () => {
+                const granted = await requestLocationPermission();
+                setLocationPermission(granted ? "granted" : "denied");
+              }} className="w-full bg-blue-600 hover:bg-blue-700 rounded-xl min-h-[44px]">
+                Solicitar permiso
+              </Button>
+            )}
+          </div>
+
+          {/* Permiso de Notificaciones */}
+          <div className="bg-slate-50 rounded-xl p-4 space-y-3">
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${notificationPermission === "granted" ? "bg-green-100" : notificationPermission === "denied" ? "bg-red-100" : notificationPermission === "unsupported" ? "bg-gray-100" : "bg-amber-100"}`}>
+                <Bell className={`w-5 h-5 ${notificationPermission === "granted" ? "text-green-600" : notificationPermission === "denied" ? "text-red-600" : notificationPermission === "unsupported" ? "text-gray-600" : "text-amber-600"}`} />
+              </div>
+              <div className="flex-1">
+                <h4 className="font-semibold text-slate-900">Notificaciones</h4>
+                <p className="text-xs text-slate-500">Recibe alertas de nuevos viajes y actualizaciones importantes.</p>
+              </div>
+              <div className="text-right">
+                <span className={`text-xs font-medium ${notificationPermission === "granted" ? "text-green-600" : notificationPermission === "denied" ? "text-red-600" : notificationPermission === "unsupported" ? "text-gray-600" : "text-amber-600"}`}>
+                  {notificationPermission === "granted" ? "Concedido" : notificationPermission === "denied" ? "Denegado" : notificationPermission === "unsupported" ? "No soportado" : notificationPermission === "prompt" ? "Preguntar" : "Verificando..."}
+                </span>
+              </div>
+            </div>
+            {notificationPermission === "denied" && (
+              <Button onClick={() => openAppSettings()} className="w-full bg-slate-600 hover:bg-slate-700 rounded-xl min-h-[44px]">
+                <Settings className="w-4 h-4 mr-2" />
+                Abrir configuración
+              </Button>
+            )}
+            {notificationPermission === "prompt" && (
+              <Button onClick={async () => {
+                const granted = await requestNotificationPermission();
+                setNotificationPermission(granted ? "granted" : "denied");
+              }} className="w-full bg-blue-600 hover:bg-blue-700 rounded-xl min-h-[44px]">
+                Solicitar permiso
+              </Button>
+            )}
+          </div>
+        </div>
       )}
 
       {activeSection === "ratings" && (

@@ -1,10 +1,12 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { supabaseApi } from "@/lib/supabaseApi";
 import { futureCDMX } from "@/components/shared/dateUtils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { User, Phone, Mail, LogOut, Lock, KeyRound, CheckCircle, X, Trash2, ChevronRight, Star, MessageSquare, AlertCircle, Wallet, Camera } from "lucide-react";
+import { User, Phone, Mail, LogOut, Lock, KeyRound, CheckCircle, X, Trash2, ChevronRight, Star, MessageSquare, AlertCircle, Wallet, Camera, MapPin, Bell, Settings } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { getLocationPermissionState, requestLocationPermission, getNotificationPermissionState, requestNotificationPermission, openAppSettings } from "@/lib/permissionsService";
+import type { AppPermissionState } from "@/lib/permissionsService";
 
 function RatingsHistoryPanel({ rides = [], role, onClose, darkMode = false }) {
   const isDriver = role === "driver";
@@ -90,6 +92,13 @@ export default function RAProfileTab({ user, rides, onLogout, onUserUpdate, onDe
   const [showRatings, setShowRatings] = useState(false);
   const [showWallet, setShowWallet] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [locationPermission, setLocationPermission] = useState<AppPermissionState>("checking");
+  const [notificationPermission, setNotificationPermission] = useState<AppPermissionState>("checking");
+
+  useEffect(() => {
+    getLocationPermissionState().then(setLocationPermission);
+    getNotificationPermissionState().then(setNotificationPermission);
+  }, []);
 
   const handlePhotoUpload = async (file) => {
     if (!file) return;
@@ -317,6 +326,75 @@ export default function RAProfileTab({ user, rides, onLogout, onUserUpdate, onDe
           <span className="text-sm text-white/70">Ver historial de calificaciones</span>
           <ChevronRight className="w-4 h-4 text-white/30" />
         </button>
+      </div>
+
+      {/* Permissions section */}
+      <div className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-4">
+        <p className="text-white/50 text-xs uppercase tracking-wide font-medium">Permisos de la aplicación</p>
+
+        {/* Location Permission */}
+        <div className="bg-white/10 border border-white/20 rounded-xl p-3 space-y-3">
+          <div className="flex items-center gap-3">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${locationPermission === "granted" ? "bg-green-500/20" : locationPermission === "denied" ? "bg-red-500/20" : "bg-amber-500/20"}`}>
+              <MapPin className={`w-4 h-4 ${locationPermission === "granted" ? "text-green-400" : locationPermission === "denied" ? "text-red-400" : "text-amber-400"}`} />
+            </div>
+            <div className="flex-1">
+              <h4 className="font-semibold text-white text-sm">Ubicación</h4>
+              <p className="text-white/50 text-xs">Necesario para mostrar tu posición en el mapa.</p>
+            </div>
+            <div className="text-right">
+              <span className={`text-xs font-medium ${locationPermission === "granted" ? "text-green-400" : locationPermission === "denied" ? "text-red-400" : "text-amber-400"}`}>
+                {locationPermission === "granted" ? "Concedido" : locationPermission === "denied" ? "Denegado" : locationPermission === "prompt" ? "Preguntar" : "Verificando..."}
+              </span>
+            </div>
+          </div>
+          {locationPermission === "denied" && (
+            <Button onClick={() => openAppSettings()} className="w-full bg-slate-600 hover:bg-slate-700 rounded-xl min-h-[36px] text-xs">
+              <Settings className="w-3 h-3 mr-2" />
+              Abrir configuración
+            </Button>
+          )}
+          {locationPermission === "prompt" && (
+            <Button onClick={async () => {
+              const granted = await requestLocationPermission();
+              setLocationPermission(granted ? "granted" : "denied");
+            }} className="w-full bg-blue-600 hover:bg-blue-700 rounded-xl min-h-[36px] text-xs">
+              Solicitar permiso
+            </Button>
+          )}
+        </div>
+
+        {/* Notification Permission */}
+        <div className="bg-white/10 border border-white/20 rounded-xl p-3 space-y-3">
+          <div className="flex items-center gap-3">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${notificationPermission === "granted" ? "bg-green-500/20" : notificationPermission === "denied" ? "bg-red-500/20" : notificationPermission === "unsupported" ? "bg-gray-500/20" : "bg-amber-500/20"}`}>
+              <Bell className={`w-4 h-4 ${notificationPermission === "granted" ? "text-green-400" : notificationPermission === "denied" ? "text-red-400" : notificationPermission === "unsupported" ? "text-gray-400" : "text-amber-400"}`} />
+            </div>
+            <div className="flex-1">
+              <h4 className="font-semibold text-white text-sm">Notificaciones</h4>
+              <p className="text-white/50 text-xs">Recibe alertas de servicios y actualizaciones.</p>
+            </div>
+            <div className="text-right">
+              <span className={`text-xs font-medium ${notificationPermission === "granted" ? "text-green-400" : notificationPermission === "denied" ? "text-red-400" : notificationPermission === "unsupported" ? "text-gray-400" : "text-amber-400"}`}>
+                {notificationPermission === "granted" ? "Concedido" : notificationPermission === "denied" ? "Denegado" : notificationPermission === "unsupported" ? "No soportado" : notificationPermission === "prompt" ? "Preguntar" : "Verificando..."}
+              </span>
+            </div>
+          </div>
+          {notificationPermission === "denied" && (
+            <Button onClick={() => openAppSettings()} className="w-full bg-slate-600 hover:bg-slate-700 rounded-xl min-h-[36px] text-xs">
+              <Settings className="w-3 h-3 mr-2" />
+              Abrir configuración
+            </Button>
+          )}
+          {notificationPermission === "prompt" && (
+            <Button onClick={async () => {
+              const granted = await requestNotificationPermission();
+              setNotificationPermission(granted ? "granted" : "denied");
+            }} className="w-full bg-blue-600 hover:bg-blue-700 rounded-xl min-h-[36px] text-xs">
+              Solicitar permiso
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Actions */}

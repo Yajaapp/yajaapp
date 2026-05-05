@@ -10,6 +10,39 @@ const config: CapacitorConfig = {
     url: serverUrl,
     cleartext: serverUrl.startsWith('http://'),
   },
+  plugins: {
+    Geolocation: {
+      enableBackgroundTracking: true,
+    },
+    PushNotifications: {
+      presentationOptions: ["badge", "sound", "alert"],
+    },
+  },
+  ios: {
+    contentInset: 'automatic',
+    backgroundColor: '#ffffff',
+    allowsLinkPreview: false,
+    scheme: 'yaja',
+    path: 'ios',
+    useLiveReload: false,
+    cordovaLinkerFlags: ['-ObjC'],
+    prefersStatusBarHidden: false,
+    scrollEnabled: true,
+    limitsNavigationsToAppBoundDomains: false,
+    handleApplicationNotifications: true,
+    capacitorSettings: {
+      hideLogs: false,
+      iosScheme: 'yaja',
+    },
+    plugins: {
+      Geolocation: {
+        enableBackgroundTracking: true,
+      },
+      PushNotifications: {
+        presentationOptions: ["badge", "sound", "alert"],
+      },
+    },
+  },
 };
 
 export default config;

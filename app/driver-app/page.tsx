@@ -37,6 +37,7 @@ import { toast } from "sonner";
 import { enqueueRideUpdateOffline, flushOfflineOutbox, buildReconciliationExtra, isOnlineNow, type OfflineOutboxAction } from "@/lib/offlineSecurity";
 import { clearLiveLocationWatch, getCurrentLiveLocation, getNotificationPermissionState, watchLiveLocation, type LiveLocationWatchHandle } from "@/lib/nativeMobile";
 import { ensureLocationPermission } from "@/lib/locationPermissions";
+import { startLocationTracking, stopLocationTracking } from "@/lib/locationTracker";
 import { syncBrandHead } from "@/components/shared/brandHead";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -2034,6 +2035,8 @@ export default function DriverApp() {
       try {
         await supabaseApi.drivers.update(driver?.id || "", { status: "available", online_since: nowCDMX(), ...vf });
         setDriver((prev) => (prev ? { ...prev, status: "available", ...vf } : prev));
+        // Start location tracking
+        startLocationTracking(driver?.id || "");
       } catch (e) {
         import("sonner").then(({ toast }) =>
           toast.error("Error al conectarte. Intenta de nuevo.")
@@ -2089,9 +2092,13 @@ export default function DriverApp() {
             }
           : prev
       );
+      // Stop location tracking
+      stopLocationTracking();
     } else {
       await supabaseApi.drivers.update(driver?.id || "", { status: "offline" });
       setDriver((prev) => (prev ? { ...prev, status: "offline" } : prev));
+      // Stop location tracking
+      stopLocationTracking();
     }
   };
 
