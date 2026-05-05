@@ -2,15 +2,13 @@
 
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { MapPin, Bell, Camera, Mic, CheckCircle2, AlertTriangle, Settings } from "lucide-react";
+import { MapPin, Bell, CheckCircle2, AlertTriangle, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   getLocationPermissionState,
-  getMediaPermissionState,
   getNotificationPermissionState,
   openNativeAppSettings,
   requestLocationPermissionAccess,
-  requestMediaPermissionAccess,
   requestNotificationPermissionAccess,
 } from "@/lib/nativeMobile";
 import { initDriverPush, initPassengerPush } from "@/components/shared/usePushNotifications";
@@ -29,19 +27,15 @@ const roleLabels: Record<Role, { title: string; service: string }> = {
 };
 
 export default function PermissionsOnboarding({ role, userId, onDone }: PermissionsOnboardingProps) {
-  const [step, setStep] = useState<"location" | "notifications" | "media" | "done">("location");
+  const [step, setStep] = useState<"location" | "notifications" | "done">("location");
   const [requesting, setRequesting] = useState(false);
   const [locationStatus, setLocationStatus] = useState("checking");
   const [notifStatus, setNotifStatus] = useState("checking");
-  const [cameraStatus, setCameraStatus] = useState("checking");
-  const [microphoneStatus, setMicrophoneStatus] = useState("checking");
 
   useEffect(() => {
     const loadStates = async () => {
       setLocationStatus(await getLocationPermissionState());
       setNotifStatus(await getNotificationPermissionState());
-      setCameraStatus(await getMediaPermissionState("camera"));
-      setMicrophoneStatus(await getMediaPermissionState("microphone"));
     };
     loadStates();
   }, []);
@@ -49,17 +43,15 @@ export default function PermissionsOnboarding({ role, userId, onDone }: Permissi
   useEffect(() => {
     const locOk = locationStatus === "granted";
     const notifOk = notifStatus === "granted" || notifStatus === "unsupported";
-    const mediaOk = (cameraStatus === "granted" || cameraStatus === "unsupported") && (microphoneStatus === "granted" || microphoneStatus === "unsupported");
 
-    if (locOk && notifOk && mediaOk) {
+    if (locOk && notifOk) {
       onDone();
       return;
     }
 
     if (step === "location" && locOk) setStep("notifications");
-    if (step === "notifications" && notifOk) setStep("media");
-    if (step === "media" && mediaOk) setStep("done");
-  }, [locationStatus, notifStatus, cameraStatus, microphoneStatus, step, onDone]);
+    if (step === "notifications" && notifOk) setStep("done");
+  }, [locationStatus, notifStatus, step, onDone]);
 
   const requestLocation = async () => {
     setRequesting(true);
@@ -87,22 +79,11 @@ export default function PermissionsOnboarding({ role, userId, onDone }: Permissi
     setRequesting(false);
   };
 
-  const requestMedia = async () => {
-    setRequesting(true);
-    const result = await requestMediaPermissionAccess();
-    setCameraStatus(result.camera);
-    setMicrophoneStatus(result.microphone);
-    setRequesting(false);
-  };
-
   const locationGranted = locationStatus === "granted";
   const locationDenied = locationStatus === "denied";
   const notifGranted = notifStatus === "granted";
   const notifDenied = notifStatus === "denied";
-  const cameraGranted = cameraStatus === "granted";
-  const microphoneGranted = microphoneStatus === "granted";
-  const mediaDenied = cameraStatus === "denied" || microphoneStatus === "denied";
-  const stepTitle = step === "location" ? "Ubicación" : step === "notifications" ? "Notificaciones" : step === "media" ? "Llamadas y fotos" : "Listo";
+  const stepTitle = step === "location" ? "Ubicación" : step === "notifications" ? "Notificaciones" : "Listo";
 
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6 select-none" style={{ paddingTop: "max(24px, env(safe-area-inset-top))", paddingBottom: "max(24px, env(safe-area-inset-bottom))" }}>
@@ -110,14 +91,13 @@ export default function PermissionsOnboarding({ role, userId, onDone }: Permissi
         <div className="text-center text-white">
           <p className="text-sm uppercase text-slate-400 tracking-[0.22em]">Configuración de permisos</p>
           <h1 className="text-3xl font-bold mt-3">Activa los permisos necesarios</h1>
-          <p className="text-slate-400 mt-2">Para que la PWA funcione como una app nativa, activa ubicación, notificaciones y acceso a cámara/micrófono.</p>
+          <p className="text-slate-400 mt-2">Para que la PWA funcione como una app nativa, activa ubicación y notificaciones.</p>
         </div>
 
         <div className="flex items-center justify-center gap-2">
           {[
             { id: "location", label: "Ubicación" },
             { id: "notifications", label: "Notificaciones" },
-            { id: "media", label: "Llamadas" },
           ].map((item) => (
             <div key={item.id} className={`h-2 rounded-full transition-all duration-300 ${item.id === step ? "w-20 bg-blue-400" : "w-12 bg-white/10"}`} />
           ))}
@@ -165,25 +145,6 @@ export default function PermissionsOnboarding({ role, userId, onDone }: Permissi
               </Button>
             )}
             {notifDenied && (<div className="rounded-2xl p-4 bg-red-500/10 border border-red-500/30 text-red-100">Permisos de notificación bloqueados. Actívalos manualmente si quieres recibir alertas en segundo plano.</div>)}
-          </motion.div>
-        )}
-
-        {step === "media" && (
-          <motion.div key="media" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
-            <div className={`w-24 h-24 border-2 rounded-3xl mx-auto flex items-center justify-center ${cameraGranted && microphoneGranted ? "bg-emerald-500/15 border-emerald-400/40" : mediaDenied ? "bg-red-500/15 border-red-400/40" : "bg-slate-700/15 border-slate-500/40"}`}>
-              <Camera className="w-8 h-8 text-white" />
-              <Mic className="w-8 h-8 text-white ml-1" />
-              {(cameraGranted && microphoneGranted) && (<div className="absolute -top-2 -right-2 w-7 h-7 bg-emerald-500 rounded-full flex items-center justify-center"><CheckCircle2 className="w-4 h-4 text-white" /></div>)}
-            </div>
-            <div className="text-center">
-              <h2 className="text-2xl font-bold text-white">Llamadas y cámara</h2>
-              <p className="text-slate-400">Permite el acceso a cámara y micrófono para llamadas, escaneo y fotos dentro de la PWA.</p>
-            </div>
-            {(cameraGranted && microphoneGranted) && <div className="rounded-2xl p-4 bg-emerald-500/10 border border-emerald-500/30 text-emerald-100">Cámara y micrófono autorizados.</div>}
-            {mediaDenied && (<div className="rounded-2xl p-4 bg-red-500/10 border border-red-500/30 text-red-100">Los permisos de cámara o micrófono están bloqueados. Actívalos manualmente en la configuración.</div>)}
-            <Button onClick={requestMedia} disabled={requesting} className="w-full rounded-2xl bg-slate-700 hover:bg-slate-600 py-3 font-semibold">
-              {requesting ? "Solicitando acceso..." : "Permitir cámara y micrófono"}
-            </Button>
           </motion.div>
         )}
 

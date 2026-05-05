@@ -35,6 +35,15 @@ export async function getLocationPermissionState(): Promise<AppPermissionState> 
   }
 
   if (!navigator.geolocation) return "denied";
+
+  // En PWA: verificar localStorage primero para evitar problemas de navigator.permissions
+  if (typeof window !== "undefined" && !isNativePlatform()) {
+    const stored = localStorage.getItem("location_perm_granted");
+    if (stored === "true") {
+      return "granted";
+    }
+  }
+
   if (!navigator.permissions) return "prompt";
 
   try {
@@ -52,7 +61,11 @@ export async function requestLocationPermissionAccess(): Promise<AppPermissionSt
     try {
       const { Geolocation } = await import("@capacitor/geolocation");
       const permissions = await Geolocation.requestPermissions();
-      return normalizePermission(permissions.location || permissions.coarseLocation);
+      const state = normalizePermission(permissions.location || permissions.coarseLocation);
+      if (state === "granted") {
+        localStorage.setItem("location_perm_granted", "true");
+      }
+      return state;
     } catch {
       return "denied";
     }
@@ -62,7 +75,10 @@ export async function requestLocationPermissionAccess(): Promise<AppPermissionSt
 
   return new Promise((resolve) => {
     navigator.geolocation.getCurrentPosition(
-      () => resolve("granted"),
+      () => {
+        localStorage.setItem("location_perm_granted", "true");
+        resolve("granted");
+      },
       (error) => resolve(error.code === 1 ? "denied" : "prompt"),
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
