@@ -35,10 +35,11 @@ import RideHistoryModal from "@/components/driver/RideHistoryModal";
 import useRideAutoAssign from "@/components/shared/useRideAutoAssign";
 import { toast } from "sonner";
 import { enqueueRideUpdateOffline, flushOfflineOutbox, buildReconciliationExtra, isOnlineNow, type OfflineOutboxAction } from "@/lib/offlineSecurity";
-import { clearLiveLocationWatch, getCurrentLiveLocation, getNotificationPermissionState, watchLiveLocation, type LiveLocationWatchHandle } from "@/lib/nativeMobile";
+import { clearLiveLocationWatch, getCurrentLiveLocation, watchLiveLocation, type LiveLocationWatchHandle } from "@/lib/nativeMobile";
 import { ensureLocationPermission } from "@/lib/locationPermissions";
 import { locationTracker } from "@/lib/locationTracker";
 import { syncBrandHead } from "@/components/shared/brandHead";
+import { getLocationPermissionState, getNotificationPermissionState, requestNotificationPermission } from "@/lib/permissionsService";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Driver = {
