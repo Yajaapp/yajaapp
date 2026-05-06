@@ -2,7 +2,7 @@ import React from "react";
 import { Users, CheckCircle2, Zap, AlertCircle, XCircle } from "lucide-react";
 import { startOfDayCDMX, endOfDayCDMX, todayCDMX } from "@/components/shared/dateUtils";
 
-export default function DashboardStats({ rides, drivers, selectedDate }) {
+export default function DashboardStats({ rides = [], drivers = [], selectedDate }) {
   // Build day boundaries for the selected date in CDMX timezone
   const dayStr = selectedDate || todayCDMX();
   const dayStart = startOfDayCDMX(dayStr);

@@ -88,7 +88,7 @@ function RatingsHistoryPanel({ rides = [], role, onClose, darkMode = false }) {
 
 const genToken = () => Math.random().toString(36).substring(2, 8).toUpperCase();
 
-export default function RAProfileTab({ user, rides, onLogout, onUserUpdate, onDeleteAccount }) {
+export default function RAProfileTab({ user, rides = [], onLogout, onUserUpdate, onDeleteAccount }) {
   const [showRatings, setShowRatings] = useState(false);
   const [showWallet, setShowWallet] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);

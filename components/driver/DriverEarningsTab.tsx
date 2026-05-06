@@ -5,7 +5,7 @@ import moment from "moment";
 import { formatCDMX, startOfDayCDMX, endOfDayCDMX, todayCDMX } from "@/components/shared/dateUtils";
 import DriverWeeklyEarnings from "@/components/driver/DriverWeeklyEarnings";
 
-export default function DriverEarningsTab({ driver, rides, onShowHistory }) {
+export default function DriverEarningsTab({ driver, rides = [], onShowHistory }) {
   const completedOnly = rides.filter(r => r.status === "completed");
   const cancelledWithFeeOnly = rides.filter(r => r.status === "cancelled" && (r.cancellation_fee || 0) > 0);
   const thisMonth = completedOnly.filter(r => moment(r.created_date).isSame(moment(), "month"));

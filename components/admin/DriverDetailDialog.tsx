@@ -174,7 +174,7 @@ function AdminAddVehicleForm({ onAdd, vehicleDocs, editingVehicle, onCancel }) {
   );
 }
 
-export default function DriverDetailDialog({ driver, open, onOpenChange, cities, serviceTypes, rides = [] }) {
+export default function DriverDetailDialog({ driver, open, onOpenChange, cities = [], serviceTypes = [], rides = [] }) {
   const [editDriver, setEditDriver] = useState(driver || {});
   const [saving, setSaving] = useState(false);
   const [uploadingDoc, setUploadingDoc] = useState(null);

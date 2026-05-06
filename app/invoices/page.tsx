@@ -25,7 +25,7 @@ const STATUS_MAP = {
   cancelled: { label: "Cancelada",  color: "bg-red-100 text-red-700" },
 };
 
-function NewInvoiceDialog({ open, onClose, companies, rides }) {
+function NewInvoiceDialog({ open, onClose, companies = [], rides = [] }) {
   const queryClient = useQueryClient();
   const [companyId, setCompanyId] = useState("");
   const [dateFrom, setDateFrom] = useState(() => `${todayCDMX().slice(0, 8)}01`);
@@ -240,7 +240,7 @@ function NewInvoiceDialog({ open, onClose, companies, rides }) {
   );
 }
 
-function InvoiceDetailDialog({ invoice, companies, rides, onClose, onStatusChange }) {
+function InvoiceDetailDialog({ invoice, companies = [], rides = [], onClose, onStatusChange }) {
   const company = companies.find(c => c.id === invoice?.company_id);
   const invoiceRides = rides.filter(r => (invoice?.ride_ids || []).includes(r.id));
   const status = STATUS_MAP[invoice?.status] || STATUS_MAP.draft;

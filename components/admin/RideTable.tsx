@@ -116,7 +116,7 @@ function isAutoSearching(ride, searchWindowSeconds = 180) {
   return ageMs < searchWindowSeconds * 1000;
 }
 
-export default function RideTable({ rides, onAssign, onCancel, onUpdateStatus, onDelete, canEdit = true, canDelete = true, drivers = [], settings }) {
+export default function RideTable({ rides = [], onAssign, onCancel, onUpdateStatus, onDelete, canEdit = true, canDelete = true, drivers = [], settings }) {
   const [rateRide, setRateRide] = useState(null);
   const [detailRide, setDetailRide] = useState(null);
   const [editRide, setEditRide] = useState(null);

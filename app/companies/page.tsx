@@ -29,7 +29,7 @@ const empty = {
 };
 
 // ─── Price Correction Tab ─────────────────────────────────────────────────────
-function PriceCorrectionTab({ rides, company }) {
+function PriceCorrectionTab({ rides = [], company }) {
   const [corrections, setCorrections] = useState({});
   const [saving, setSaving] = useState({});
   const [saved, setSaved] = useState({});
@@ -132,7 +132,7 @@ function PriceCorrectionTab({ rides, company }) {
   );
 }
 
-function CompanyKPIs({ rides }) {
+function CompanyKPIs({ rides = [] }) {
   const completed = rides.filter(r => r.status === "completed");
   const cancelled = rides.filter(r => r.status === "cancelled");
   const totalRev = completed.reduce((s, r) => s + (r.final_price || r.estimated_price || 0), 0);
@@ -161,7 +161,7 @@ function CompanyKPIs({ rides }) {
   );
 }
 
-function InvoiceTable({ rides, company }) {
+function InvoiceTable({ rides = [], company }) {
   const [dateFrom, setDateFrom] = useState(moment().startOf("month").format("YYYY-MM-DD"));
   const [dateTo, setDateTo] = useState(moment().format("YYYY-MM-DD"));
 
@@ -282,7 +282,7 @@ function InvoiceTable({ rides, company }) {
   );
 }
 
-function CompanyDetailDialog({ company, rides, onClose }) {
+function CompanyDetailDialog({ company, rides = [], onClose }) {
   return (
     <Dialog open={!!company} onOpenChange={v => !v && onClose()}>
       <DialogContent className="sm:max-w-[61.6rem] max-h-[90vh] overflow-y-auto" style={{ width: '90vw', maxWidth: '1100px' }}>

@@ -211,7 +211,7 @@ function RideDetailModal({ ride: initialRide, driver, settings, onClose }) {
   );
 }
 
-export default function RideHistoryModal({ rides, driver, settings, onClose }) {
+export default function RideHistoryModal({ rides = [], driver, settings, onClose }) {
   const [selectedRide, setSelectedRide] = useState(null);
   return (
     <>

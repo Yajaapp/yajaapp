@@ -77,7 +77,7 @@ function FitMap({ center, primaryKm, secondaryKm }) {
 }
 
 // ── Main Component ───────────────────────────────────────────────────────────
-export default function AssignDriverDialog({ ride, drivers, rides, open, onOpenChange, onAssigned }) {
+export default function AssignDriverDialog({ ride, drivers = [], rides = [], open, onOpenChange, onAssigned }) {
   const [selectedDriverId, setSelectedDriverId] = useState("");
   const [saving, setSaving] = useState(false);
   const [osrmRoutes, setOsrmRoutes] = useState({});

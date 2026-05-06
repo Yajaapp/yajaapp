@@ -28,7 +28,7 @@ function avgOf(arr) {
   return (valid.reduce((s, v) => s + parseFloat(v), 0) / valid.length).toFixed(1);
 }
 
-export default function CompanyKPITab({ company, rides }) {
+export default function CompanyKPITab({ company, rides = [] }) {
   const [dateFrom, setDateFrom] = useState(moment().startOf("month").format("YYYY-MM-DD"));
   const [dateTo, setDateTo] = useState(moment().format("YYYY-MM-DD"));
   const [umbralAsignacion, setUmbralAsignacion] = useState(15);
