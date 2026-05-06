@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useState, useRef, useCallback } from "react";
 import { supabaseApi } from "@/lib/supabaseApi";
 import { supabase } from "@/lib/supabase";

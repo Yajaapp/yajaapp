@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useEffect, useState } from "react";
 import { supabaseApi } from "@/lib/supabaseApi";
 import { X } from "lucide-react";

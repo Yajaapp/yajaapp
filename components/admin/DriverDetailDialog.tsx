@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState } from "react";
 import { CAR_BRANDS, MOTO_BRANDS, VEHICLE_YEARS } from "@/components/shared/vehicleBrands";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";

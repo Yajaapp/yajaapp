@@ -3,6 +3,8 @@
  * Recupera el token de localStorage y lo agrega a todos los requests
  */
 
+"use client";
+
 import { useAdminSession } from '@/components/shared/useAdminSession';
 
 export function useFetchWithAuth() {

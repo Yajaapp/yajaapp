@@ -4,6 +4,8 @@
  * Hook que actualiza el ETA dinámicamente mientras el viaje está en progreso
  * Considera cambios de tráfico y actualiza cada N segundos
  */
+"use client";
+
 import { useEffect, useState } from "react";
 import { getRoute, getHaverDist } from "@/components/shared/mapsUtils";
 

@@ -1,4 +1,6 @@
 // Inspired by react-hot-toast library
+"use client";
+
 import { useState, useEffect } from "react";
 
 const TOAST_LIMIT = 20;
