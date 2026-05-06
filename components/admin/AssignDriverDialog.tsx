@@ -10,6 +10,8 @@ import { MapContainer, TileLayer, Marker, Popup, Circle, Polygon, useMap } from 
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { nowCDMX } from "@/components/shared/dateUtils";
+import { useMultipleDriverLocations } from "@/lib/useDriverLocationRealtime";
+import { AnimatedMarker } from "@/components/shared/AnimatedMapComponents";
 
 // ── Icons ────────────────────────────────────────────────────────────────────
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -158,12 +160,34 @@ export default function AssignDriverDialog({ ride, drivers, rides, open, onOpenC
     return base;
   }, [drivers, rides, ride, cities, secondaryRadius]);
 
+  // Usar hook de ubicaciones en tiempo real para conductores disponibles
+  const availableDriverIds = availableDrivers.map(d => d.id);
+  const { driverLocations } = useMultipleDriverLocations({
+    driverIds: availableDriverIds,
+    enabled: open && availableDriverIds.length > 0,
+  });
+
+  // Combinar datos estáticos con ubicaciones en tiempo real
+  const driversWithRealtimeLocation = useMemo(() => {
+    return availableDrivers.map(driver => {
+      const realtimeLocation = driverLocations.find(loc => loc.id === driver.id);
+      return realtimeLocation ? {
+        ...driver,
+        latitude: realtimeLocation.latitude,
+        longitude: realtimeLocation.longitude,
+        // Mantener datos adicionales del realtime
+        status: realtimeLocation.status,
+        last_updated: realtimeLocation.last_updated,
+      } : driver;
+    });
+  }, [availableDrivers, driverLocations]);
+
   // Auto-select nearest
   useEffect(() => {
-    if (availableDrivers.length > 0 && !selectedDriverId) {
-      setSelectedDriverId(availableDrivers[0].id);
+    if (driversWithRealtimeLocation.length > 0 && !selectedDriverId) {
+      setSelectedDriverId(driversWithRealtimeLocation[0].id);
     }
-  }, [availableDrivers]);
+  }, [driversWithRealtimeLocation]);
 
   // Reset when opened — always default to map if pickup coords exist
   useEffect(() => {
@@ -178,13 +202,13 @@ export default function AssignDriverDialog({ ride, drivers, rides, open, onOpenC
 
   // Fetch OSRM routes
   useEffect(() => {
-    if (!open || !ride?.pickup_lat || !ride?.pickup_lon || availableDrivers.length === 0) return;
+    if (!open || !ride?.pickup_lat || !ride?.pickup_lon || driversWithRealtimeLocation.length === 0) return;
     setLoadingRoutes(true);
-    fetchOSRMRoutes(ride.pickup_lat, ride.pickup_lon, availableDrivers).then(routes => {
+    fetchOSRMRoutes(ride.pickup_lat, ride.pickup_lon, driversWithRealtimeLocation).then(routes => {
       setOsrmRoutes(routes);
       setLoadingRoutes(false);
     });
-  }, [open, ride?.pickup_lat, ride?.pickup_lon, availableDrivers.length]);
+  }, [open, ride?.pickup_lat, ride?.pickup_lon, driversWithRealtimeLocation.length]);
 
   const handleAssign = async () => {
     if (!selectedDriverId) return;
@@ -219,7 +243,7 @@ export default function AssignDriverDialog({ ride, drivers, rides, open, onOpenC
     setSelectedDriverId("");
   };
 
-  const nearest = availableDrivers[0];
+  const nearest = driversWithRealtimeLocation[0];
   const hasPickup = !!(ride?.pickup_lat && ride?.pickup_lon);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -227,7 +251,7 @@ export default function AssignDriverDialog({ ride, drivers, rides, open, onOpenC
         <DialogHeader>
           <DialogTitle className="text-lg flex items-center gap-2">
             Asignar conductor
-            <span className="text-sm font-normal text-slate-400">— {availableDrivers.length} disponible{availableDrivers.length !== 1 ? "s" : ""}</span>
+            <span className="text-sm font-normal text-slate-400">— {driversWithRealtimeLocation.length} disponible{driversWithRealtimeLocation.length !== 1 ? "s" : ""}</span>
           </DialogTitle>
           <DialogDescription className="text-xs text-slate-500">
             Selecciona un conductor disponible para este viaje.
@@ -253,7 +277,7 @@ export default function AssignDriverDialog({ ride, drivers, rides, open, onOpenC
               {osrmRoutes[nearest.id] ? (
                 <span>Más cercano: <strong>{nearest.full_name}</strong> · {osrmRoutes[nearest.id].distKm.toFixed(1)} km por ruta · ~{osrmRoutes[nearest.id].durationMin} min</span>
               ) : (
-                <span>Más cercano: <strong>{nearest.full_name}</strong> · {getHaverDist(ride.pickup_lat, ride.pickup_lon, nearest.latitude, nearest.longitude).toFixed(1)} km {loadingRoutes ? "(calculando...)" : ""}</span>
+                <span>Más cercano: <strong>{nearest.full_name}</strong> · {getHaverDist(ride.pickup_lat, ride.pickup_lon, nearest.latitude, nearest.longitude).toFixed(1)} km {loadingRoutes ? "(calculando ruta...)" : "(tiempo real)"}</span>
               )}
             </div>
           )}
@@ -350,26 +374,32 @@ export default function AssignDriverDialog({ ride, drivers, rides, open, onOpenC
                 </Marker>
 
                 {/* Driver markers */}
-                {availableDrivers.map((d, i) => {
+                {driversWithRealtimeLocation.map((d, i) => {
                   if (!d.latitude || !d.longitude) return null;
                   const isSelected = selectedDriverId === d.id;
                   const route = osrmRoutes[d.id];
                   const dist = getHaverDist(ride.pickup_lat, ride.pickup_lon, d.latitude, d.longitude);
+                  const hasRealtimeLocation = driverLocations.some(loc => loc.id === d.id);
+                  
                   return (
-                    <Marker
+                    <AnimatedMarker
                       key={d.id}
                       position={[d.latitude, d.longitude]}
                       icon={isSelected ? goldIcon : blueIcon}
+                      duration={600}
                       eventHandlers={{ click: () => setSelectedDriverId(d.id) }}
                     >
                       <Popup>
                         <div className="text-xs space-y-1 min-w-[140px]">
-                          <p className="font-bold">{d.full_name}</p>
+                          <p className="font-bold flex items-center gap-1">
+                            {d.full_name}
+                            {hasRealtimeLocation && <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" title="Ubicación en tiempo real" />}
+                          </p>
                           <p><Star className="w-3 h-3 inline text-amber-400" /> {d.rating || 5}</p>
                           <p>{d.vehicle_brand} {d.vehicle_model} · {d.license_plate}</p>
                           {route
                             ? <p>🛣 {route.distKm.toFixed(1)} km · {route.durationMin} min</p>
-                            : <p>📐 {dist.toFixed(1)} km (en línea)</p>
+                            : <p>📐 {dist.toFixed(1)} km {hasRealtimeLocation ? "(tiempo real)" : "(última conocida)"}</p>
                           }
                           <button
                             onClick={() => setSelectedDriverId(d.id)}
@@ -379,7 +409,7 @@ export default function AssignDriverDialog({ ride, drivers, rides, open, onOpenC
                           </button>
                         </div>
                       </Popup>
-                    </Marker>
+                    </AnimatedMarker>
                   );
                 })}
               </MapContainer>
@@ -392,6 +422,7 @@ export default function AssignDriverDialog({ ride, drivers, rides, open, onOpenC
               <span className="flex items-center gap-1"><span className="inline-block w-3 h-0.5 border-t-2 border-blue-400 border-dashed" /> Radio {primaryRadius} km (primario)</span>
               <span className="flex items-center gap-1"><span className="inline-block w-3 h-0.5 border-t-2 border-amber-400 border-dashed" /> Radio {secondaryRadius} km (secundario)</span>
               <span className="flex items-center gap-1"><span className="text-amber-500">★</span> Seleccionado</span>
+              <span className="flex items-center gap-1"><span className="inline-block w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" /> Ubicación tiempo real</span>
               {geoZones.length > 0 && (
                 <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-sm bg-emerald-400 opacity-60" /> Geocercas ({geoZones.length})</span>
               )}

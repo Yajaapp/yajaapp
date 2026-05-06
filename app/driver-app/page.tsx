@@ -39,6 +39,8 @@ import { clearLiveLocationWatch, getCurrentLiveLocation, watchLiveLocation, type
 import { ensureLocationPermission } from "@/lib/locationPermissions";
 import { locationTracker } from "@/lib/locationTracker";
 import { syncBrandHead } from "@/components/shared/brandHead";
+import { useDriverLocation } from "@/lib/useDriverLocationRealtime";
+import { AnimatedMarker, SmoothMapPanner } from "@/components/shared/AnimatedMapComponents";
 import { getLocationPermissionState, getNotificationPermissionState, requestNotificationPermission } from "@/lib/permissionsService";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -295,10 +297,17 @@ function HomeMap({
   todayEarnings: number;
   settings: AppSettings | undefined;
 }) {
-  const lat = driver?.latitude;
-  const lon = driver?.longitude;
-  const center = lat && lon ? [lat, lon] : [19.4326, -99.1332];
   const isOnline = driver?.status === "available";
+
+  // Usar hook de ubicación en tiempo real
+  const { location: driverLocation, isLoading: locationLoading } = useDriverLocation({
+    driverId: driver?.id || null,
+    enabled: !!driver?.id && isOnline,
+  });
+
+  const lat = driverLocation?.latitude;
+  const lon = driverLocation?.longitude;
+  const center = lat && lon ? [lat, lon] : [19.4326, -99.1332];
   const mapRef = useRef<any>(null);
 
   // Flow data: fetch ALL platform rides periodically
@@ -370,7 +379,7 @@ function HomeMap({
         ref={mapRef as any}
       >
         <TileLayer url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" />
-        <MapRecenter lat={lat} lon={lon} />
+        <SmoothMapPanner center={center as [number, number]} duration={1000} />
 
         {/* Zonas de calor de flujo */}
         {zones.map((z, i) => {
@@ -387,11 +396,15 @@ function HomeMap({
           );
         })}
 
-        {/* Marcador del conductor */}
+        {/* Marcador del conductor con animación */}
         {lat && lon && (
-          <Marker position={[lat, lon]} icon={driverIcon}>
+          <AnimatedMarker
+            position={[lat, lon]}
+            icon={driverIcon}
+            duration={800}
+          >
             <Popup>Tu ubicación actual</Popup>
-          </Marker>
+          </AnimatedMarker>
         )}
       </MapContainer>
 
@@ -838,6 +851,64 @@ export default function DriverApp() {
             body: notif.body,
             tag: notif.tag || `admin-notif-${notif.id}`,
           });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      channel.unsubscribe();
+    };
+  }, [driver?.id]);
+
+  // Realtime subscription for ride requests assigned to this driver
+  useEffect(() => {
+    if (!driver?.id) return;
+
+    const channel = supabase
+      .channel(`driver_rides:${driver.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "ride_requests",
+          filter: `driver_id=eq.${driver.id}`,
+        },
+        async (payload) => {
+          const ride = payload.new || payload.old;
+          if (!ride) return;
+
+          // Update local ride state
+          if (payload.eventType === "UPDATE") {
+            setCurrentRide((prev) => prev?.id === ride.id ? { ...prev, ...ride } : prev);
+            setActiveRide((prev) => prev?.id === ride.id ? { ...prev, ...ride } : prev);
+
+            // Update location tracker based on ride status
+            if (["accepted", "en_route", "arrived", "in_progress"].includes(ride.status)) {
+              locationTracker.setRideStatus(true, ride.id);
+            } else {
+              locationTracker.setRideStatus(false);
+            }
+
+            // Handle status changes
+            if (ride.status === "cancelled" && prev?.status !== "cancelled") {
+              stopNewRideAlarm();
+              import("sonner").then(({ toast }) =>
+                toast.error(`🚫 Viaje cancelado: ${ride.cancellation_reason || "Cancelado por pasajero"}`)
+              );
+            } else if (ride.status === "completed" && prev?.status !== "completed") {
+              playAcceptedSound();
+              import("sonner").then(({ toast }) =>
+                toast.success("✅ Viaje completado exitosamente")
+              );
+            }
+          } else if (payload.eventType === "INSERT") {
+            // New ride assigned to this driver
+            setCurrentRide(ride);
+            setActiveRide(ride);
+            locationTracker.setRideStatus(true, ride.id);
+            startNewRideAlarm();
+          }
         }
       )
       .subscribe();
@@ -2038,6 +2109,8 @@ export default function DriverApp() {
         setDriver((prev) => (prev ? { ...prev, status: "available", ...vf } : prev));
         // Start location tracking
         await locationTracker.start(driver?.id || "");
+        // Force immediate location update
+        await locationTracker.forceUpdate();
       } catch (e) {
         import("sonner").then(({ toast }) =>
           toast.error("Error al conectarte. Intenta de nuevo.")
@@ -2381,6 +2454,14 @@ export default function DriverApp() {
   const hasActiveRide = activeRides.some((r) =>
     ["assigned", "admin_approved", "en_route", "arrived", "in_progress"].includes(r.status)
   );
+
+  // Driver location tracking hook
+  const { forceUpdate: forceLocationUpdate } = useDriverLocation({
+    driverId: driver?.id || null,
+    hasActiveRide,
+    rideId: hasActiveRide ? activeRides.find(r => ["assigned", "admin_approved", "en_route", "arrived", "in_progress"].includes(r.status))?.id || null : null,
+    enabled: driver?.status === "available" || hasActiveRide,
+  });
 
   return (
     <div

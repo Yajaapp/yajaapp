@@ -13,8 +13,10 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Wifi, WifiOff, Car, Users, Search, ChevronUp, ChevronDown } from "lucide-react";
-
 import { toast } from "sonner";
+
+import { useMultipleDriverLocations } from "@/lib/useDriverLocationRealtime";
+import { AnimatedMarker, SmoothMapPanner } from "@/components/shared/AnimatedMapComponents";
 
 function MapUpdater({ center }: any) {
   const map = useMap();
@@ -83,21 +85,12 @@ export default function LiveDriversPage() {
     gcTime: 10 * 60 * 1000,
   });
 
-  useEffect(() => {
-    const channel = supabase.channel("drivers_live").on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: "Driver" },
-      (payload: any) => {
-        queryClient.setQueryData(["driversLive"], (old: any = []) => {
-          if (payload.eventType === "DELETE") return old.filter((d: any) => d.id !== payload.old.id);
-          if (payload.eventType === "INSERT") return [...old, payload.new];
-          if (payload.eventType === "UPDATE") return old.map((d: any) => d.id === payload.new.id ? { ...d, ...payload.new } : d);
-          return old;
-        });
-      }
-    ).subscribe();
-    return () => { channel.unsubscribe(); };
-  }, [queryClient]);
+  // Usar hook de múltiples ubicaciones en tiempo real
+  const driverIds = drivers.map(d => d.id);
+  const { locations: driverLocations, isLoading: locationsLoading } = useMultipleDriverLocations({
+    driverIds,
+    enabled: driverIds.length > 0,
+  });
 
   useEffect(() => {
     setSelectedRoute(null);
@@ -169,27 +162,24 @@ export default function LiveDriversPage() {
   };
 
   const getStatusLabel = (status: string, type: string = "driver") => {
-    if (type === "ride") {
-      const labels: any = {
-        assigned: "Asignado",
-        admin_approved: "Aprobado",
-        en_route: "En camino",
-        arrived: "Llegó",
-        in_progress: "En progreso",
-        completed: "Completado",
-        cancelled: "Cancelado",
-      };
-      return labels[status] || status;
-    } else {
-      const labels: any = {
-        available: "Disponible",
-        busy: "En servicio",
-        offline: "Desconectado",
-        suspended: "Suspendido",
-        blocked: "Bloqueado",
-      };
-      return labels[status] || status;
-    }
+    const rideLabels = {
+      assigned: "Asignado",
+      admin_approved: "Aprobado",
+      en_route: "En camino",
+      arrived: "Llegó",
+      in_progress: "En progreso",
+      completed: "Completado",
+      cancelled: "Cancelado",
+    };
+    const driverLabels = {
+      available: "Disponible",
+      busy: "En servicio",
+      offline: "Desconectado",
+      suspended: "Suspendido",
+      blocked: "Bloqueado",
+    };
+    const labels = type === "ride" ? rideLabels : driverLabels;
+    return labels[status] || status;
   };
 
   return (
@@ -278,14 +268,19 @@ export default function LiveDriversPage() {
                 scrollWheelZoom={true}
               >
                 <TileLayer url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" />
-                <MapUpdater center={center} />
-                {drivers.filter((d: any) => d.latitude && d.longitude).map((driver: any) => {
+                <SmoothMapPanner center={center} duration={1000} />
+                {drivers.filter((d: any) => {
+                  const location = driverLocations[d.id];
+                  return location?.latitude && location?.longitude;
+                }).map((driver: any) => {
+                  const location = driverLocations[driver.id];
                   const activeRide = rides.find((r: any) => r.driver_id === driver.id);
                   return (
-                    <Marker
+                    <AnimatedMarker
                       key={driver.id}
-                      position={[driver.latitude, driver.longitude]}
+                      position={[location.latitude, location.longitude]}
                       icon={defaultIcon}
+                      duration={600}
                       eventHandlers={{
                         click: () =>
                           setSelectedDriverId(
@@ -320,7 +315,7 @@ export default function LiveDriversPage() {
                           </p>
                         </div>
                       </Popup>
-                    </Marker>
+                    </AnimatedMarker>
                   );
                 })}
                 {selectedRoute && (

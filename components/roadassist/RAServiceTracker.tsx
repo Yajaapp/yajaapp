@@ -20,6 +20,8 @@ import RAPassengerChat from "@/components/roadassist/RAPassengerChat";
 import { nowCDMX } from "@/components/shared/dateUtils";
 import { toast } from "sonner";
 import { enqueueRideUpdateOffline, flushOfflineOutbox, buildReconciliationExtra, isOnlineNow, type OfflineOutboxAction } from "@/lib/offlineSecurity";
+import { useDriverLocation } from "@/lib/useDriverLocationRealtime";
+import { AnimatedMarker, SmoothMapPanner } from "@/components/shared/AnimatedMapComponents";
 
 // Fix leaflet default icons
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -55,38 +57,6 @@ const pickupIcon = new L.DivIcon({
   iconSize: [36, 36],
   iconAnchor: [18, 32],
 });
-
-function MapFitBounds({ driverLat, driverLon, pickupLat, pickupLon }) {
-  const map = useMap();
-  const fittedRef = useRef(false);
-  const prevDriverRef = useRef(null);
-
-  useEffect(() => {
-    if (fittedRef.current) return;
-    if (!pickupLat || !pickupLon) return;
-    if (driverLat && driverLon) {
-      try {
-        const bounds = L.latLngBounds([driverLat, driverLon], [pickupLat, pickupLon]).pad(0.3);
-        map.fitBounds(bounds, { maxZoom: 15, animate: true });
-        fittedRef.current = true;
-      } catch {}
-    } else {
-      map.setView([pickupLat, pickupLon], 14, { animate: true });
-      fittedRef.current = true;
-    }
-   
-  }, [!!driverLat, !!driverLon, !!pickupLat]);
-
-  useEffect(() => {
-    if (!driverLat || !driverLon || !fittedRef.current) return;
-    const prev = prevDriverRef.current;
-    if (prev && prev.lat === driverLat && prev.lon === driverLon) return;
-    prevDriverRef.current = { lat: driverLat, lon: driverLon };
-    map.panTo([driverLat, driverLon], { animate: true, duration: 1.2 });
-  }, [driverLat, driverLon]);
-
-  return null;
-}
 
 function formatETA(minutes) {
   if (minutes === null || minutes === undefined) return null;
@@ -272,41 +242,20 @@ export default function RAServiceTracker({ ride, user, onRefresh, onRideEnded })
     [ride, rideSnapshot, liveRide]
   );
 
-  const { data: driverData } = useQuery({
-    queryKey: ["ra_driver", currentRide?.driver_id],
+  // Usar hook de ubicación en tiempo real para el conductor
+  const { location: driverLocation, isLoading: driverLocationLoading } = useDriverLocation({
+    driverId: currentRide?.driver_id || null,
     enabled: !!currentRide?.driver_id,
-    refetchInterval: driverRefetchMs,
-    queryFn: async () => {
-      const list = await supabaseApi.drivers.list();
-      return list.find(d => d.id === currentRide.driver_id);
-    },
   });
 
-   useEffect(() => {
-     if (!currentRide?.driver_id) return;
-     
-     // Use a unique channel name with timestamp to avoid collisions
-     const channelName = `driver_live:${currentRide.driver_id}:${Date.now()}`;
-     const channel = supabase.channel(channelName);
-     
-     const unsubscribe = channel
-       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "drivers", filter: `id=eq.${currentRide.driver_id}` }, (event) => {
-         const data = event.new;
-         if (data?.id !== currentRide.driver_id) return;
-         queryClient.setQueryData(["ra_driver", currentRide.driver_id], data);
-       })
-       .subscribe((status) => {
-         if (status === "CHANNEL_ERROR") {
-           console.warn("[RAServiceTracker] Realtime subscription failed for driver", currentRide.driver_id);
-         }
-       });
-     
-     return () => { 
-       try {
-         channel.unsubscribe();
-       } catch (_) {}
-     };
-   }, [currentRide?.driver_id, queryClient]);
+  // Mantener compatibilidad con el código existente
+  const driverData = driverLocation ? {
+    id: driverLocation.id,
+    latitude: driverLocation.latitude,
+    longitude: driverLocation.longitude,
+    full_name: driverLocation.full_name,
+    status: driverLocation.status,
+  } : null;
 
   const { data: policies = [] } = useQuery({
     queryKey: ["cancellationPolicies"],
@@ -601,11 +550,9 @@ export default function RAServiceTracker({ ride, user, onRefresh, onRideEnded })
               <Popup>🏁 Destino</Popup>
             </Marker>
           )}
-          <MapFitBounds
-            driverLat={driverData?.latitude}
-            driverLon={driverData?.longitude}
-            pickupLat={currentRide.pickup_lat}
-            pickupLon={currentRide.pickup_lon}
+          <SmoothMapPanner
+            center={driverData?.latitude && driverData?.longitude ? [driverData.latitude, driverData.longitude] : undefined}
+            duration={1200}
           />
           {currentRide.pickup_lat && currentRide.pickup_lon && (
             <Marker position={[currentRide.pickup_lat, currentRide.pickup_lon]} icon={pickupIcon}>
@@ -613,9 +560,13 @@ export default function RAServiceTracker({ ride, user, onRefresh, onRideEnded })
             </Marker>
           )}
           {driverData?.latitude && driverData?.longitude && (
-            <Marker position={[driverData.latitude, driverData.longitude]} icon={driverIcon}>
+            <AnimatedMarker
+              position={[driverData.latitude, driverData.longitude]}
+              icon={driverIcon}
+              duration={800}
+            >
               <Popup>{driverData.full_name}</Popup>
-            </Marker>
+            </AnimatedMarker>
           )}
         </MapContainer>
       </div>

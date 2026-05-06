@@ -57,6 +57,14 @@ function StepIndicator({ current }) {
   );
 }
 
+function RegisterScreenWrapper({ children }) {
+  return (
+    <div className="min-h-screen h-screen bg-slate-900 p-5 overflow-y-auto select-none" style={{ paddingTop: "max(24px, env(safe-area-inset-top))", paddingBottom: "max(24px, env(safe-area-inset-bottom))" }}>
+      <div className="w-full max-w-sm mx-auto">{children}</div>
+    </div>
+  );
+}
+
 const genOTP = () => String(Math.floor(100000 + Math.random() * 900000));
 
 export default function DriverRegisterScreen({ onBack, prefilledEmail = "", onLogin }) {
@@ -290,8 +298,7 @@ export default function DriverRegisterScreen({ onBack, prefilledEmail = "", onLo
   // ── STEP: VERIFY EMAIL ─────────────────────────────────────────────────────
   if (step === "verify_email") {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 select-none"
-        style={{ paddingTop: "max(24px, env(safe-area-inset-top))", paddingBottom: "max(24px, env(safe-area-inset-bottom))" }}>
+      <RegisterScreenWrapper>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-sm">
           <button onClick={() => { setStep("check"); setError(""); }} className="flex items-center gap-2 text-slate-400 hover:text-white mb-6 text-sm select-none min-h-[44px]">
             <ArrowLeft className="w-4 h-4" /> Atrás
@@ -357,15 +364,14 @@ export default function DriverRegisterScreen({ onBack, prefilledEmail = "", onLo
             )}
           </Card>
         </motion.div>
-      </div>
+      </RegisterScreenWrapper>
     );
   }
 
   // ── STEP: CHECK ────────────────────────────────────────────────────────────
   if (step === "check") {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 select-none"
-        style={{ paddingTop: "max(24px, env(safe-area-inset-top))", paddingBottom: "max(24px, env(safe-area-inset-bottom))" }}>
+      <RegisterScreenWrapper>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-sm">
           <button onClick={onBack} className="flex items-center gap-2 text-slate-400 hover:text-white mb-6 text-sm select-none min-h-[44px]">
             <ArrowLeft className="w-4 h-4" /> Volver al inicio de sesión
@@ -388,7 +394,7 @@ export default function DriverRegisterScreen({ onBack, prefilledEmail = "", onLo
             </Button>
           </Card>
         </motion.div>
-      </div>
+      </RegisterScreenWrapper>
     );
   }
 
@@ -403,7 +409,7 @@ export default function DriverRegisterScreen({ onBack, prefilledEmail = "", onLo
     const s = statusMap[d?.approval_status] || statusMap.pending;
     const Icon = s.icon;
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6">
+      <RegisterScreenWrapper>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-sm">
           <Card className={`p-8 border-2 text-center ${s.bg}`}>
             <Icon className={`w-16 h-16 mx-auto mb-4 ${s.color}`} />
@@ -420,14 +426,14 @@ export default function DriverRegisterScreen({ onBack, prefilledEmail = "", onLo
             )}
           </Card>
         </motion.div>
-      </div>
+      </RegisterScreenWrapper>
     );
   }
 
   // ── STEP: PERSONAL ─────────────────────────────────────────────────────────
   if (step === "personal") {
     return (
-      <div className="min-h-screen bg-slate-900 p-5 pb-16 overflow-y-auto" style={{ paddingTop: "max(24px, env(safe-area-inset-top))" }}>
+      <RegisterScreenWrapper>
         <div className="max-w-sm mx-auto">
           <button onClick={() => setStep("check")} className="flex items-center gap-2 text-slate-400 hover:text-white mb-4 text-sm select-none min-h-[44px]">
             <ArrowLeft className="w-4 h-4" /> Atrás
@@ -558,13 +564,13 @@ export default function DriverRegisterScreen({ onBack, prefilledEmail = "", onLo
             </Button>
           </Card>
         </div>
-      </div>
+      </RegisterScreenWrapper>
     );
   }
 
   // ── STEP: VEHICLE ──────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-slate-900 p-5 pb-16 overflow-y-auto" style={{ paddingTop: "max(24px, env(safe-area-inset-top))" }}>
+    <RegisterScreenWrapper>
       <div className="max-w-sm mx-auto">
         <button onClick={() => { setStep("personal"); setError(""); }} className="flex items-center gap-2 text-slate-400 hover:text-white mb-4 text-sm select-none min-h-[44px]">
           <ArrowLeft className="w-4 h-4" /> Atrás
@@ -654,6 +660,6 @@ export default function DriverRegisterScreen({ onBack, prefilledEmail = "", onLo
           </Button>
         </Card>
       </div>
-    </div>
+    </RegisterScreenWrapper>
   );
 }

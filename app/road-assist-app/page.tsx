@@ -396,6 +396,82 @@ export default function RoadAssistApp() {
     })[0];
   }, [activeRides]);
 
+  // Realtime subscription for passenger's ride requests
+  useEffect(() => {
+    const passengerId = user?.id;
+    if (!passengerId) return;
+
+    const channel = supabase
+      .channel(`passenger_rides:${passengerId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "ride_requests",
+          filter: `passenger_user_id=eq.${passengerId}`,
+        },
+        async (payload) => {
+          const ride = payload.new || payload.old;
+          if (!ride) return;
+
+          // Update local rides state
+          if (payload.eventType === "UPDATE") {
+            queryClient.setQueryData(["rides"], (old: any[] = []) => {
+              return old.map((r) => r.id === ride.id ? { ...r, ...ride } : r);
+            });
+
+            // Handle status changes with notifications
+            if (ride.status === "assigned" && payload.old?.status !== "assigned") {
+              playSound("assigned");
+              showPassengerNotification({
+                title: "🚗 Conductor asignado",
+                body: `${ride.driver_name || "Tu conductor"} está en camino`,
+              });
+            } else if (ride.status === "en_route" && payload.old?.status !== "en_route") {
+              playSound("en_route");
+              showPassengerNotification({
+                title: "🚗 Conductor en camino",
+                body: `${ride.driver_name || "El conductor"} se dirige hacia ti`,
+              });
+            } else if (ride.status === "arrived" && payload.old?.status !== "arrived") {
+              playSound("arrived");
+              showPassengerNotification({
+                title: "📍 ¡Tu conductor llegó!",
+                body: `${ride.driver_name || "El conductor"} te espera en el punto de recogida`,
+              });
+            } else if (ride.status === "in_progress" && payload.old?.status !== "in_progress") {
+              playSound("in_progress");
+              showPassengerNotification({
+                title: "🚗 Servicio en progreso",
+                body: "Tu viaje ha comenzado",
+              });
+            } else if (ride.status === "completed" && payload.old?.status !== "completed") {
+              playSound("completed");
+              showPassengerNotification({
+                title: "✅ Servicio completado",
+                body: `Total: $${(ride.final_price || ride.estimated_price || 0).toFixed(2)}`,
+              });
+            } else if (ride.status === "cancelled" && payload.old?.status !== "cancelled") {
+              playSound("cancelled");
+              showPassengerNotification({
+                title: "❌ Servicio cancelado",
+                body: ride.cancellation_reason || "El servicio fue cancelado",
+              });
+            }
+          } else if (payload.eventType === "INSERT") {
+            // New ride created
+            queryClient.setQueryData(["rides"], (old: any[] = []) => [ride, ...old]);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      channel.unsubscribe();
+    };
+  }, [user?.id, queryClient]);
+
   // Capture ride when completed/cancelled so tracker stays mounted until user dismisses
   useEffect(() => {
     if (activeRide) {

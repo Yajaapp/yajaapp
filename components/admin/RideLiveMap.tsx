@@ -5,9 +5,8 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from "react-
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import type { LatLngTuple } from "leaflet";
-import { supabaseApi } from "@/lib/supabaseApi";
-import { supabase } from "@/lib/supabase";
-import { useQuery } from "@tanstack/react-query";
+import { useDriverLocation } from "@/lib/useDriverLocationRealtime";
+import { AnimatedMarker, SmoothMapPanner } from "@/components/shared/AnimatedMapComponents";
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -87,42 +86,24 @@ function haversineKm(lat1, lon1, lat2, lon2) {
 export default function RideLiveMap({ ride, settings }) {
   const [route, setRoute] = useState(null);
   const [routeMeta, setRouteMeta] = useState(null); // { distanceKm, durationMin }
-  const [liveDriver, setLiveDriver] = useState<any>(null);
-  const refetchInterval = (settings?.driver_location_update_interval_seconds ?? 20) * 1000;
   const isActive = ride && !["completed", "cancelled"].includes(ride.status);
 
-  const { data: driverArr } = useQuery({
-    queryKey: ["driverLive", ride?.driver_id],
-    queryFn: () => supabaseApi.drivers.list({ id: ride.driver_id }),
+  // Usar hook de ubicación en tiempo real
+  const { location: driverLocation, isLoading: driverLoading } = useDriverLocation({
+    driverId: ride?.driver_id || null,
     enabled: !!ride?.driver_id && isActive,
-    refetchInterval,
   });
 
-  useEffect(() => {
-    setLiveDriver(null);
-    if (!ride?.driver_id || !isActive) return;
-    const channel = supabase
-      .channel(`gps_driver_${ride.driver_id}`)
-      .on("broadcast", { event: "location" }, ({ payload }: any) => {
-        if (payload?.driver_id !== ride.driver_id) return;
-        setLiveDriver({
-          latitude: payload.latitude,
-          longitude: payload.longitude,
-          status: payload.status,
-          sent_at: payload.sent_at,
-        });
-      })
-      .subscribe();
+  // Mantener compatibilidad con código existente
+  const liveDriver = driverLocation ? {
+    id: driverLocation.id,
+    latitude: driverLocation.latitude,
+    longitude: driverLocation.longitude,
+    full_name: driverLocation.full_name,
+    status: driverLocation.status,
+  } : null;
 
-    return () => {
-      channel.unsubscribe();
-    };
-  }, [ride?.driver_id, isActive]);
-
-  const driver = {
-    ...(driverArr?.[0] || {}),
-    ...(liveDriver || {}),
-  };
+  const driver = liveDriver || {};
   const hasDriverLoc = driver?.latitude && driver?.longitude;
   const hasPickup = ride?.pickup_lat && ride?.pickup_lon;
   const hasDropoff = ride?.dropoff_lat && ride?.dropoff_lon;
@@ -193,15 +174,19 @@ export default function RideLiveMap({ ride, settings }) {
       <div className="rounded-xl overflow-hidden border border-slate-200" style={{ height: 240 }}>
         <MapContainer center={center} zoom={14} style={{ height: "100%", width: "100%" }} scrollWheelZoom={false}>
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="© OpenStreetMap" />
-          {hasDriverLoc && <MapRecenter pos={[driver.latitude, driver.longitude]} />}
+          {hasDriverLoc && <SmoothMapPanner center={[driver.latitude, driver.longitude]} duration={1000} />}
           {hasDriverLoc && (
-            <Marker position={[driver.latitude, driver.longitude]} icon={carIconSvg(carColor)}>
+            <AnimatedMarker
+              position={[driver.latitude, driver.longitude]}
+              icon={carIconSvg(carColor)}
+              duration={800}
+            >
               <Popup>
                 <strong>🚗 {driver.full_name}</strong><br />
                 {driver.vehicle_brand} {driver.vehicle_model} · {driver.license_plate}
                 {routeMeta && <><br /><span style={{color:"#3B82F6"}}>~{routeMeta.durationMin} min · {routeMeta.distanceKm} km</span></>}
               </Popup>
-            </Marker>
+            </AnimatedMarker>
           )}
           {hasPickup && (
             <Marker position={[ride.pickup_lat, ride.pickup_lon]} icon={personIconSvg("#10B981")}>
