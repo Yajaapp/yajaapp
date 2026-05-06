@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { supabaseApi } from "@/lib/supabaseApi";
 import { setSystemTimezone } from "@/components/shared/dateUtils";
 
@@ -21,19 +21,21 @@ export default function useAppSettings() {
     initialData: [],
   });
 
-  const baseSettings = data?.[0] || {
-    company_name: DEFAULT_COMPANY_NAME,
-    primary_color: "#0F172A",
-    accent_color: "#3B82F6",
-    secondary_color: "#10B981",
-    currency: "MXN",
-    timezone: "America/Mexico_City",
-  };
+  const settings = useMemo(() => {
+    const baseSettings = data?.[0] || {
+      company_name: DEFAULT_COMPANY_NAME,
+      primary_color: "#0F172A",
+      accent_color: "#3B82F6",
+      secondary_color: "#10B981",
+      currency: "MXN",
+      timezone: "America/Mexico_City",
+    };
 
-  const settings = {
-    ...baseSettings,
-    company_name: normalizeCompanyName(baseSettings?.company_name),
-  };
+    return {
+      ...baseSettings,
+      company_name: normalizeCompanyName(baseSettings?.company_name),
+    };
+  }, [data]);
 
   useEffect(() => {
     if (settings?.timezone) {

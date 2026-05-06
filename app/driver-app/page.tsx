@@ -1126,6 +1126,26 @@ export default function DriverApp() {
     staleTime: 0,
   });
 
+  // Calcular activeRides y hasActiveRide aquí para usar en el hook useDriverLocation
+  const activeRides = rides.filter((r) => {
+    if (["completed", "cancelled"].includes(r.status)) return false;
+    if (r.status === "assigned") {
+      return !!(r.driver_accepted_at || r.en_route_at || r.arrived_at || r.in_progress_at);
+    }
+    return true;
+  });
+  const hasActiveRide = activeRides.some((r) =>
+    ["assigned", "admin_approved", "en_route", "arrived", "in_progress"].includes(r.status)
+  );
+
+  // Driver location tracking hook - mover aquí antes de los early returns
+  const { forceUpdate: forceLocationUpdate } = useDriverLocation({
+    driverId: driver?.id || null,
+    hasActiveRide,
+    rideId: hasActiveRide ? activeRides.find(r => ["assigned", "admin_approved", "en_route", "arrived", "in_progress"].includes(r.status))?.id || null : null,
+    enabled: driver?.status === "available" || hasActiveRide,
+  });
+
   useEffect(() => {
     if (!driver?.id) return;
     const onVisible = () => {
@@ -2443,25 +2463,7 @@ export default function DriverApp() {
     );
 
   const isSuspended = driver.status === "suspended" || driver.status === "blocked";
-  const activeRides = rides.filter((r) => {
-    if (["completed", "cancelled"].includes(r.status)) return false;
-    if (r.status === "assigned") {
-      return !!(r.driver_accepted_at || r.en_route_at || r.arrived_at || r.in_progress_at);
-    }
-    return true;
-  });
   const completedRides = rides.filter((r) => ["completed", "cancelled"].includes(r.status));
-  const hasActiveRide = activeRides.some((r) =>
-    ["assigned", "admin_approved", "en_route", "arrived", "in_progress"].includes(r.status)
-  );
-
-  // Driver location tracking hook
-  const { forceUpdate: forceLocationUpdate } = useDriverLocation({
-    driverId: driver?.id || null,
-    hasActiveRide,
-    rideId: hasActiveRide ? activeRides.find(r => ["assigned", "admin_approved", "en_route", "arrived", "in_progress"].includes(r.status))?.id || null : null,
-    enabled: driver?.status === "available" || hasActiveRide,
-  });
 
   return (
     <div
