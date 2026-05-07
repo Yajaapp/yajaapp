@@ -924,7 +924,6 @@ export default function DriverApp() {
   useEffect(() => {
     driverRef.current = driver;
   }, [driver]);
-  const settingsRef = useRef<AppSettings | undefined>(null);
 
   const locationIntervalMsRef = useRef(1000); // Reducido a 1 segundo para movimiento fluido tipo Uber
 
