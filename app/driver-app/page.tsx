@@ -6,9 +6,9 @@ import { supabaseApi } from "@/lib/supabaseApi";
 import { supabase } from "@/lib/supabase";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useDriverNotifications, stopNewRideAlarm, startNewRideAlarm } from "@/components/shared/useRideNotifications";
-import { Car, Star, Clock, User, AlertTriangle, DollarSign, ShieldAlert, HelpCircle, Wifi, Navigation, RefreshCw, TrendingUp, History, LogOut, X } from "lucide-react";
+import { Car, Star, Clock, User, AlertTriangle, DollarSign, ShieldAlert, HelpCircle, Navigation, RefreshCw, TrendingUp, LogOut, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Popup, Circle, useMap } from "react-leaflet";
 // Leaflet CSS is imported via npm package
 import L from "leaflet";
 import { setSystemTimezone, nowCDMX, futureCDMX } from "@/components/shared/dateUtils";
@@ -651,6 +651,15 @@ export default function DriverApp() {
   const [showVehicleSelector, setShowVehicleSelector] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showPermissionsOnboarding, setShowPermissionsOnboarding] = useState(false);
+  const [suspendedUntil, setSuspendedUntil] = useState(() => {
+    const stored = localStorage.getItem("driver_suspended_until");
+    if (stored) {
+      const val = parseInt(stored);
+      if (val > Date.now()) return val;
+      localStorage.removeItem("driver_suspended_until");
+    }
+    return null;
+  });
 
   const releaseDriverToAvailable = useCallback(async () => {
     if (!driver?.id) return;
@@ -704,19 +713,10 @@ export default function DriverApp() {
     checkPermissions();
   }, []);
 
-  const [suspendedUntil, setSuspendedUntil] = useState(() => {
-    const stored = localStorage.getItem("driver_suspended_until");
-    if (stored) {
-      const val = parseInt(stored);
-      if (val > Date.now()) return val;
-      localStorage.removeItem("driver_suspended_until");
-    }
-    return null;
-  });
-
   const locationPermission = useLocationPermission();
   useDarkModeSync();
   useWakeLock();
+  const settingsRef = useRef<AppSettings | undefined>(null);
 
   const queryClient = useQueryClient();
   const getAssignmentSignal = useCallback((ride?: Ride | null) => {
@@ -795,9 +795,6 @@ export default function DriverApp() {
   }, [driver?.id]);
 
   const handleRejectRideRef = useRef<any>(null);
-  useEffect(() => {
-    handleRejectRideRef.current = handleRejectRide;
-  });
 
   useEffect(() => {
     if (!driver?.id) return;
@@ -1010,17 +1007,6 @@ export default function DriverApp() {
   }, [driver?.id, saveLocation]);
 
   // Backup polling para asegurar actualizaciones de GPS incluso si watchPosition falla
-  useEffect(() => {
-    if (!driver?.id) return;
-    if (driver.status !== "available" && !hasActiveRide) return;
-
-    const backupGpsInterval = setInterval(() => {
-      refreshDriverLocation();
-    }, 3000); // Polling cada 3 segundos como respaldo
-
-    return () => clearInterval(backupGpsInterval);
-  }, [driver?.id, driver?.status, hasActiveRide, refreshDriverLocation]);
-
   const { data: settingsList = [] } = useQuery({
     queryKey: ["appSettings"],
     queryFn: async () => {
@@ -1032,11 +1018,12 @@ export default function DriverApp() {
   });
   const settings = settingsList[0] as AppSettings | undefined;
 
+  const appLogo = settings?.logo_url;
+  const appName = settings?.company_name;
+
   useEffect(() => {
     settingsRef.current = settings;
   }, [settings]);
-  const appLogo = settings?.logo_url;
-  const appName = settings?.company_name;
 
   useEffect(() => {
     const company = appName?.trim() || "YAJA Asistencia";
@@ -1150,6 +1137,17 @@ export default function DriverApp() {
   const hasActiveRide = activeRides.some((r) =>
     ["assigned", "admin_approved", "en_route", "arrived", "in_progress"].includes(r.status)
   );
+
+  useEffect(() => {
+    if (!driver?.id) return;
+    if (driver.status !== "available" && !hasActiveRide) return;
+
+    const backupGpsInterval = setInterval(() => {
+      refreshDriverLocation();
+    }, 3000);
+
+    return () => clearInterval(backupGpsInterval);
+  }, [driver?.id, driver?.status, hasActiveRide, refreshDriverLocation]);
 
   // Driver location tracking hook - mover aquí antes de los early returns
   const { forceUpdate: forceLocationUpdate } = useDriverLocation({
@@ -2034,6 +2032,10 @@ export default function DriverApp() {
     }
     queryClient.invalidateQueries({ queryKey: ["driverRides"] });
   };
+
+  useEffect(() => {
+    handleRejectRideRef.current = handleRejectRide;
+  }, [handleRejectRide]);
 
   const handleSelectVehicle = async (v: any) => {
     const vehicles = (driver?.vehicles || []).map((x) => ({ ...x, is_active: x.id === v.id }));
