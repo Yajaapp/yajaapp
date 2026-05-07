@@ -310,7 +310,12 @@ export async function watchLiveLocation(
   if (isNativePlatform()) {
     const { Geolocation } = await import("@capacitor/geolocation");
     const id = await Geolocation.watchPosition(
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
+      { 
+        enableHighAccuracy: true, 
+        timeout: 10000, 
+        maximumAge: 0,
+        distanceFilter: 2
+      },
       (position, error) => {
         if (position?.coords) onSuccess(position as any);
         if (error) onError?.(error as any);
@@ -324,7 +329,12 @@ export async function watchLiveLocation(
   const id = navigator.geolocation.watchPosition(
     (position) => onSuccess(position),
     (error) => onError?.(error),
-    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    { 
+      enableHighAccuracy: true, 
+      timeout: 10000, 
+      maximumAge: 0,
+      distanceFilter: 2
+    }
   );
 
   return { native: false, id };

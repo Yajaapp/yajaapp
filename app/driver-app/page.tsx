@@ -396,12 +396,12 @@ function HomeMap({
           );
         })}
 
-        {/* Marcador del conductor con animación */}
+        {/* Marcador del conductor con animación suave tipo Uber */}
         {lat && lon && (
           <AnimatedMarker
             position={[lat, lon]}
             icon={driverIcon}
-            duration={800}
+            duration={1000}
           >
             <Popup>Tu ubicación actual</Popup>
           </AnimatedMarker>
@@ -929,18 +929,19 @@ export default function DriverApp() {
   }, [driver]);
   const settingsRef = useRef<AppSettings | undefined>(null);
 
-  const locationIntervalMsRef = useRef(5000);
+  const locationIntervalMsRef = useRef(1000); // Reducido a 1 segundo para movimiento fluido tipo Uber
 
   const saveLocation = useCallback((lat: number, lon: number) => {
     const d = driverRef.current;
     if (!d?.id) return;
     if (!lat || !lon || Math.abs(lat) < 0.001 || Math.abs(lon) < 0.001) return;
     const now = Date.now();
+    // Throttle a 1 segundo para movimiento fluido tipo Uber/DiDi (optimizado de 5s)
     if (now - lastLocationSaveRef.current < locationIntervalMsRef.current) return;
     lastLocationSaveRef.current = now;
     // NOTE: GPS movement does NOT reset inactivity timer — only screen touch does.
 
-    // Stream GPS instantly to admin UIs via websocket broadcast.
+    // Stream GPS instantly to admin UIs via websocket broadcast para sincronización en tiempo real
     gpsChannelRef.current?.send({
       type: "broadcast",
       event: "location",
@@ -953,7 +954,7 @@ export default function DriverApp() {
       },
     }).catch(() => {});
 
-    // Keep DB persistence as fallback/audit.
+    // Keep DB persistence as fallback/audit
     supabaseApi.drivers.update(d.id, { latitude: lat, longitude: lon, last_seen_at: nowCDMX() }).catch(() => {});
   }, []);
 
@@ -1008,6 +1009,18 @@ export default function DriverApp() {
     };
   }, [driver?.id, saveLocation]);
 
+  // Backup polling para asegurar actualizaciones de GPS incluso si watchPosition falla
+  useEffect(() => {
+    if (!driver?.id) return;
+    if (driver.status !== "available" && !hasActiveRide) return;
+
+    const backupGpsInterval = setInterval(() => {
+      refreshDriverLocation();
+    }, 3000); // Polling cada 3 segundos como respaldo
+
+    return () => clearInterval(backupGpsInterval);
+  }, [driver?.id, driver?.status, hasActiveRide, refreshDriverLocation]);
+
   const { data: settingsList = [] } = useQuery({
     queryKey: ["appSettings"],
     queryFn: async () => {
@@ -1040,7 +1053,7 @@ export default function DriverApp() {
   }, [settings?.timezone]);
 
   useEffect(() => {
-    locationIntervalMsRef.current = (settings?.driver_location_update_interval_seconds ?? 5) * 1000;
+    locationIntervalMsRef.current = Math.max(1000, (settings?.driver_location_update_interval_seconds ?? 2) * 1000);
   }, [settings?.driver_location_update_interval_seconds]);
 
   const computeRideFinalPricing = useCallback(async (ride: Ride, actualEndCoords?: { lat: number; lon: number }) => {
