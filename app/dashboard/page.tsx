@@ -558,7 +558,8 @@ export default function Dashboard() {
       return { id, name: driver?.full_name || "Driver " + id };
     });
 
-
+  }
+  
   return (
     <Layout currentPageName="Dashboard">
       <div className="space-y-6">
