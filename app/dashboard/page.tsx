@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, Search, Filter, AlertTriangle, UserCheck, ChevronRight, Wifi, CalendarClock, Calendar, ArrowUpDown } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import DashboardStats from "@/components/admin/DashboardStats";
 import RideTable from "@/components/admin/RideTable";
@@ -22,6 +23,7 @@ import { toast } from "sonner";
 import { useAdminSession } from "@/components/shared/useAdminSession";
 
 export default function Dashboard() {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const { isAllowed } = useAdminSession();
   const [statusFilter, setStatusFilter] = useState("all");
@@ -571,11 +573,11 @@ export default function Dashboard() {
             </p>
           </div>
           <div className="flex gap-2">
-            <Link href="/live-drivers">
-              <Button variant="outline" className="rounded-xl shadow-sm border-emerald-200 text-emerald-700 hover:bg-emerald-50">
+            
+              <Button onClick={() => router.push("/live-drivers")} variant="outline" className="rounded-xl shadow-sm border-emerald-200 text-emerald-700 hover:bg-emerald-50">
                 <Wifi className="w-4 h-4 mr-2" /> EN VIVO
               </Button>
-            </Link>
+            
             <Button onClick={() => setShowCreate(true)} className="rounded-xl shadow-sm bg-blue-600 hover:bg-blue-700">
               <Plus className="w-4 h-4 mr-2" /> Nuevo viaje
             </Button>
@@ -633,7 +635,7 @@ export default function Dashboard() {
           if (debtRides.length === 0) return null;
           return (
             <Link href="/payment-methods" className="block">
-              <div className="bg-gradient-to-r from-orange-500 to-amber-500 rounded-2xl p-4 flex items-center gap-3 hover:opacity-95 transition-opacity shadow-lg shadow-orange-200">
+              <div onClick={() => router.push("/payment-methods")} className="bg-gradient-to-r from-orange-500 to-amber-500 rounded-2xl p-4 flex items-center gap-3 hover:opacity-95 transition-opacity shadow-lg shadow-orange-200 cursor-pointer">
                 <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0 animate-pulse">
                   <AlertTriangle className="w-5 h-5 text-white" />
                 </div>
@@ -649,7 +651,7 @@ export default function Dashboard() {
                 </div>
                 <ChevronRight className="w-5 h-5 text-white/70 flex-shrink-0" />
               </div>
-            </Link>
+            
           );
         })()}
 
@@ -661,7 +663,7 @@ export default function Dashboard() {
           if (reconciliationRides.length === 0) return null;
           return (
             <Link href="/offline-reconciliation" className="block">
-              <div className="bg-gradient-to-r from-yellow-500 to-amber-500 rounded-2xl p-4 flex items-center gap-3 shadow-lg shadow-amber-200 hover:opacity-95 transition-opacity">
+              <div onClick={() => router.push("/offline-reconciliation")} className="bg-gradient-to-r from-yellow-500 to-amber-500 rounded-2xl p-4 flex items-center gap-3 shadow-lg shadow-amber-200 hover:opacity-95 transition-opacity cursor-pointer">
               <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
                 <AlertTriangle className="w-5 h-5 text-white" />
               </div>
@@ -682,13 +684,13 @@ export default function Dashboard() {
                 Revisar
               </Button>
               </div>
-            </Link>
+            
           );
         })()}
 
         {sosAlerts.length > 0 && (
           <Link href="/sos-alerts" className="block">
-            <div className="bg-gradient-to-r from-red-500 to-rose-600 rounded-2xl p-4 flex items-center gap-3 hover:opacity-95 transition-opacity shadow-lg shadow-red-200">
+            <div onClick={() => router.push("/sos-alerts")} className="bg-gradient-to-r from-red-500 to-rose-600 rounded-2xl p-4 flex items-center gap-3 hover:opacity-95 transition-opacity shadow-lg shadow-red-200 cursor-pointer">
               <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
                 <AlertTriangle className="w-5 h-5 text-white" />
               </div>
@@ -698,7 +700,7 @@ export default function Dashboard() {
               </div>
               <ChevronRight className="w-5 h-5 text-white/70" />
             </div>
-          </Link>
+          
         )}
 
         {rides.filter((r: any) => r.status === "pending" && r.assignment_mode === "manual" && r.manual_assignment_requested_at && !r.driver_id).map((r: any) => (
